@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>New Crochet Project</h1>
+
+<form method="POST" enctype="multipart/form-data">
+    <div class="mb-3">
+        <label for="title" class="form-label">Project Title</label>
+        <input type="text" class="form-control" id="title" name="title" required>
+    </div>
+
+    <div class="mb-3">
+        <label for="thumbnail" class="form-label">Thumbnail Image</label>
+        <input type="file" class="form-control" id="thumbnail" name="thumbnail" accept="image/*">
+    </div>
+
+    <div class="mb-3">
+        <label for="external_link" class="form-label">External Link (Optional)</label>
+        <input type="url" class="form-control" id="external_link" name="external_link">
+    </div>
+
+    <div class="mb-3">
+        <label for="tags" class="form-label">Tags (comma-separated)</label>
+        <input type="text" class="form-control" id="tags" name="tags" placeholder="amigurumi, beginner, quick">
+    </div>
+
+    <div class="mb-3">
+        <label for="notes" class="form-label">Notes</label>
+        <textarea class="form-control" id="notes" name="notes" rows="4"></textarea>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Create Project</button>
+</form>
+{% endblock %}
