@@ -27,8 +27,8 @@ class Project(db.Model):
     current_round = db.Column(db.Integer, default=1)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     tags = db.relationship('Tag', secondary=project_tags, backref='projects')
-    materials = db.relationship('Material', backref='project', lazy=True)
-    parts = db.relationship('Part', backref='project', lazy=True)
+    materials = db.relationship('Material', backref='project', lazy=True, cascade='all, delete-orphan')
+    parts = db.relationship('Part', backref='project', lazy=True, cascade='all, delete-orphan')
 
 class Tag(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -44,7 +44,7 @@ class Part(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     project_id = db.Column(db.Integer, db.ForeignKey('project.id'), nullable=False)
-    steps = db.relationship('Step', backref='part', lazy=True)
+    steps = db.relationship('Step', backref='part', lazy=True, cascade='all, delete-orphan')
 
 class Step(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -191,6 +191,24 @@ def add_material(project_id):
     db.session.add(material)
     db.session.commit()
     return redirect(url_for('project_detail', project_id=project_id))
+
+@app.route('/project/<int:project_id>/delete', methods=['POST'])
+def delete_project(project_id):
+    project = Project.query.get_or_404(project_id)
+    
+    # Delete associated files
+    if project.thumbnail:
+        try:
+            os.remove(os.path.join(app.config['UPLOAD_FOLDER'], project.thumbnail))
+        except OSError:
+            pass  # File might not exist
+    
+    # SQLAlchemy will handle deleting related materials, parts, and steps
+    # due to cascade relationships
+    db.session.delete(project)
+    db.session.commit()
+    
+    return redirect(url_for('index'))
 
 if __name__ == '__main__':
     with app.app_context():

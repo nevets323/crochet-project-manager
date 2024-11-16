@@ -3,7 +3,12 @@
 {% block content %}
 <div class="row">
     <div class="col-md-8">
-        <h1>{{ project.title }}</h1>
+        <div class="d-flex justify-content-between align-items-start mb-3">
+            <h1 class="mb-0">{{ project.title }}</h1>
+            <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteProjectModal">
+                Delete Project
+            </button>
+        </div>
         
         {% if project.tags %}
         <div class="mb-3">
@@ -18,6 +23,35 @@
             <a href="{{ project.external_link }}" target="_blank" class="btn btn-outline-primary">View External Link</a>
         </div>
         {% endif %}
+
+        <!-- Delete Project Modal -->
+        <div class="modal fade" id="deleteProjectModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Delete Project</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Are you sure you want to delete "{{ project.title }}"? This action cannot be undone.</p>
+                        <ul>
+                            <li>All project details will be permanently deleted</li>
+                            <li>All materials will be removed</li>
+                            <li>All parts and steps will be deleted</li>
+                            {% if project.thumbnail %}
+                            <li>Project thumbnail will be deleted</li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <form method="POST" action="{{ url_for('delete_project', project_id=project.id) }}" class="d-inline">
+                            <button type="submit" class="btn btn-danger">Delete Project</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <div class="card mb-4">
             <div class="card-header">
