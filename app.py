@@ -55,16 +55,32 @@ class Step(db.Model):
 @app.route('/')
 def index():
     search_query = request.args.get('search', '').strip()
+    sort_by = request.args.get('sort', 'date_desc')  # Default sort by date descending
+    
+    # Start building the query
+    query = Project.query
+    
+    # Apply search filter if exists
     if search_query:
-        projects = Project.query.join(Project.tags).filter(
+        query = query.join(Project.tags).filter(
             db.or_(
                 Project.title.ilike(f'%{search_query}%'),
                 Tag.name.ilike(f'%{search_query}%')
             )
-        ).distinct().order_by(Project.created_at.desc()).all()
-    else:
-        projects = Project.query.order_by(Project.created_at.desc()).all()
-    return render_template('index.html', projects=projects, search_query=search_query)
+        ).distinct()
+    
+    # Apply sorting
+    if sort_by == 'date_desc':
+        query = query.order_by(Project.created_at.desc())
+    elif sort_by == 'date_asc':
+        query = query.order_by(Project.created_at.asc())
+    elif sort_by == 'title_asc':
+        query = query.order_by(Project.title.asc())
+    elif sort_by == 'title_desc':
+        query = query.order_by(Project.title.desc())
+    
+    projects = query.all()
+    return render_template('index.html', projects=projects, search_query=search_query, sort_by=sort_by)
 
 @app.route('/project/new', methods=['GET', 'POST'])
 def new_project():
