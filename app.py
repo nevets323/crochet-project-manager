@@ -43,6 +43,7 @@ class Material(db.Model):
 class Part(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
+    position = db.Column(db.Integer, default=0)
     project_id = db.Column(db.Integer, db.ForeignKey('project.id'), nullable=False)
     steps = db.relationship('Step', backref='part', lazy=True, cascade='all, delete-orphan')
 
@@ -119,16 +120,68 @@ def new_project():
 @app.route('/project/<int:project_id>')
 def project_detail(project_id):
     project = Project.query.get_or_404(project_id)
-    return render_template('project_detail.html', project=project)
+    # Order parts by position
+    parts = Part.query.filter_by(project_id=project_id).order_by(Part.position).all()
+    return render_template('project_detail.html', project=project, parts=parts)
 
 @app.route('/project/<int:project_id>/add_part', methods=['POST'])
 def add_part(project_id):
     project = Project.query.get_or_404(project_id)
     part_name = request.form['part_name']
-    part = Part(name=part_name, project=project)
+    # Get the highest position and add 1
+    max_position = db.session.query(db.func.max(Part.position)).filter_by(project_id=project_id).scalar() or -1
+    part = Part(name=part_name, project=project, position=max_position + 1)
     db.session.add(part)
     db.session.commit()
     return redirect(url_for('project_detail', project_id=project_id))
+
+@app.route('/part/<int:part_id>/delete', methods=['POST'])
+def delete_part(part_id):
+    part = Part.query.get_or_404(part_id)
+    project_id = part.project_id
+    
+    # Get all parts with higher positions
+    higher_parts = Part.query.filter(
+        Part.project_id == project_id,
+        Part.position > part.position
+    ).all()
+    
+    # Decrement their positions
+    for p in higher_parts:
+        p.position -= 1
+    
+    db.session.delete(part)
+    db.session.commit()
+    return redirect(url_for('project_detail', project_id=project_id))
+
+@app.route('/part/<int:part_id>/move', methods=['POST'])
+def move_part(part_id):
+    part = Part.query.get_or_404(part_id)
+    direction = request.form.get('direction')
+    
+    if direction not in ['up', 'down']:
+        return redirect(url_for('project_detail', project_id=part.project_id))
+    
+    # Find the part to swap with
+    if direction == 'up' and part.position > 0:
+        other_part = Part.query.filter_by(
+            project_id=part.project_id,
+            position=part.position - 1
+        ).first()
+    elif direction == 'down':
+        other_part = Part.query.filter_by(
+            project_id=part.project_id,
+            position=part.position + 1
+        ).first()
+    else:
+        return redirect(url_for('project_detail', project_id=part.project_id))
+    
+    if other_part:
+        # Swap positions
+        part.position, other_part.position = other_part.position, part.position
+        db.session.commit()
+    
+    return redirect(url_for('project_detail', project_id=part.project_id))
 
 @app.route('/part/<int:part_id>/add_step', methods=['POST'])
 def add_step(part_id):

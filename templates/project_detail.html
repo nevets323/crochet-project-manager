@@ -125,11 +125,56 @@
             </div>
         </form>
 
-        {% for part in project.parts %}
-        <div class="card mb-4">
-            <div class="card-header">
-                <h4>{{ part.name }}</h4>
+        {% for part in parts %}
+        <div class="card mb-4" id="part-{{ part.id }}">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center">
+                    <div class="btn-group me-2">
+                        <form method="POST" action="{{ url_for('move_part', part_id=part.id) }}" class="d-inline">
+                            <input type="hidden" name="direction" value="up">
+                            <button type="submit" class="btn btn-sm btn-outline-secondary" {% if loop.first %}disabled{% endif %}>
+                                <i class="bi bi-arrow-up"></i>
+                            </button>
+                        </form>
+                        <form method="POST" action="{{ url_for('move_part', part_id=part.id) }}" class="d-inline">
+                            <input type="hidden" name="direction" value="down">
+                            <button type="submit" class="btn btn-sm btn-outline-secondary" {% if loop.last %}disabled{% endif %}>
+                                <i class="bi bi-arrow-down"></i>
+                            </button>
+                        </form>
+                    </div>
+                    <h4 class="mb-0">{{ part.name }}</h4>
+                </div>
+                <div class="btn-group">
+                    <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deletePart{{ part.id }}">
+                        Delete Part
+                    </button>
+                </div>
             </div>
+
+            <!-- Delete Part Modal -->
+            <div class="modal fade" id="deletePart{{ part.id }}" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Delete Part</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p>Are you sure you want to delete "{{ part.name }}"? This action cannot be undone.</p>
+                            <ul>
+                                <li>All steps in this part will be permanently deleted</li>
+                                <li>Part order will be automatically adjusted</li>
+                            </ul>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <form method="POST" action="{{ url_for('delete_part', part_id=part.id) }}" class="d-inline">
+                                <button type="submit" class="btn btn-danger">Delete Part</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
             <div class="card-body">
                 {% for step in part.steps %}
                 <div class="mb-3 border-bottom pb-2">
