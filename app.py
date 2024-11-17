@@ -51,6 +51,7 @@ class Step(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     round_number = db.Column(db.String(20))
     instructions = db.Column(db.Text, nullable=False)
+    completed = db.Column(db.Boolean, default=False)
     part_id = db.Column(db.Integer, db.ForeignKey('part.id'), nullable=False)
 
 @app.route('/')
@@ -208,6 +209,21 @@ def delete_step(step_id):
     db.session.delete(step)
     db.session.commit()
     return redirect(url_for('project_detail', project_id=project_id))
+
+@app.route('/step/<int:step_id>/toggle', methods=['POST'])
+def toggle_step(step_id):
+    step = Step.query.get_or_404(step_id)
+    step.completed = not step.completed
+    db.session.commit()
+    return redirect(url_for('project_detail', project_id=step.part.project_id))
+
+@app.route('/part/<int:part_id>/reset_steps', methods=['POST'])
+def reset_steps(part_id):
+    part = Part.query.get_or_404(part_id)
+    for step in part.steps:
+        step.completed = False
+    db.session.commit()
+    return redirect(url_for('project_detail', project_id=part.project_id))
 
 @app.route('/project/<int:project_id>/update_round', methods=['POST'])
 def update_round(project_id):
