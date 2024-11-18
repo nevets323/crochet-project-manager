@@ -192,8 +192,9 @@
                                     <i class="bi {% if step.completed %}bi-check-square{% else %}bi-square{% endif %}"></i>
                                 </button>
                             </form>
-                            <div {% if step.completed %}class="text-decoration-line-through"{% endif %}>
-                                <strong>{{ step.round_number }}:</strong> {{ step.instructions }}
+                            <div class="d-flex {% if step.completed %}text-decoration-line-through{% endif %}">
+                                <div class="me-3" style="min-width: 3em;"><strong>{{ step.round_number }}</strong></div>
+                                <div>{{ step.instructions }}</div>
                             </div>
                         </div>
                         <div class="btn-group ms-2">
@@ -215,13 +216,15 @@
                             </div>
                             <form method="POST" action="{{ url_for('edit_step', step_id=step.id) }}">
                                 <div class="modal-body">
-                                    <div class="mb-3">
-                                        <label class="form-label">Round Number</label>
-                                        <input type="text" class="form-control" name="round_number" value="{{ step.round_number }}" required>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label">Instructions</label>
-                                        <input type="text" class="form-control" name="instructions" value="{{ step.instructions }}" required>
+                                    <div class="row g-3">
+                                        <div class="col-3">
+                                            <label class="form-label">Round</label>
+                                            <input type="text" class="form-control form-control-sm" name="round_number" value="{{ step.round_number }}" required>
+                                        </div>
+                                        <div class="col-9">
+                                            <label class="form-label">Instructions</label>
+                                            <input type="text" class="form-control form-control-sm" name="instructions" value="{{ step.instructions }}" required>
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="modal-footer">
@@ -235,15 +238,15 @@
                 {% endfor %}
 
                 <form method="POST" action="{{ url_for('add_step', part_id=part.id) }}" class="mt-3">
-                    <div class="row">
-                        <div class="col-md-2">
-                            <input type="text" class="form-control" name="round_number" placeholder="Round" required>
+                    <div class="row g-2">
+                        <div class="col-md-2 col-3">
+                            <input type="text" class="form-control form-control-sm" name="round_number" placeholder="R1" required>
                         </div>
-                        <div class="col-md-8">
-                            <input type="text" class="form-control" name="instructions" placeholder="Instructions" required>
+                        <div class="col-md-8 col-7">
+                            <input type="text" class="form-control form-control-sm" name="instructions" placeholder="MR 8 sc" required>
                         </div>
-                        <div class="col-md-2">
-                            <button type="submit" class="btn btn-outline-secondary w-100">Add Step</button>
+                        <div class="col-md-2 col-2">
+                            <button type="submit" class="btn btn-sm btn-outline-secondary w-100">Add</button>
                         </div>
                     </div>
                 </form>
