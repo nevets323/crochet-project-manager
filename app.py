@@ -24,7 +24,7 @@ class Project(db.Model):
     thumbnail = db.Column(db.String(200))
     external_link = db.Column(db.String(500))
     notes = db.Column(db.Text)
-    current_round = db.Column(db.Integer, default=1)
+    made_count = db.Column(db.Integer, default=0)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     tags = db.relationship('Tag', secondary=project_tags, backref='projects')
     materials = db.relationship('Material', backref='project', lazy=True, cascade='all, delete-orphan')
@@ -54,6 +54,11 @@ class Step(db.Model):
     completed = db.Column(db.Boolean, default=False)
     part_id = db.Column(db.Integer, db.ForeignKey('part.id'), nullable=False)
 
+    @staticmethod
+    def reset_steps_for_part(part_id):
+        Step.query.filter_by(part_id=part_id).update({Step.completed: False})
+        db.session.commit()
+
 @app.route('/')
 def index():
     search_query = request.args.get('search', '').strip()
@@ -80,6 +85,10 @@ def index():
         query = query.order_by(Project.title.asc())
     elif sort_by == 'title_desc':
         query = query.order_by(Project.title.desc())
+    elif sort_by == 'made_desc':
+        query = query.order_by(Project.made_count.desc())
+    elif sort_by == 'made_asc':
+        query = query.order_by(Project.made_count.asc())
     
     projects = query.all()
     return render_template('index.html', projects=projects, search_query=search_query, sort_by=sort_by)
@@ -220,26 +229,27 @@ def toggle_step(step_id):
 @app.route('/part/<int:part_id>/reset_steps', methods=['POST'])
 def reset_steps(part_id):
     part = Part.query.get_or_404(part_id)
-    for step in part.steps:
-        step.completed = False
-    db.session.commit()
+    Step.reset_steps_for_part(part_id)
     return redirect(url_for('project_detail', project_id=part.project_id))
 
-@app.route('/project/<int:project_id>/update_round', methods=['POST'])
-def update_round(project_id):
+@app.route('/project/<int:project_id>/reset_all_steps', methods=['POST'])
+def reset_all_steps(project_id):
+    project = Project.query.get_or_404(project_id)
+    for part in project.parts:
+        Step.reset_steps_for_part(part.id)
+    return redirect(url_for('project_detail', project_id=project_id))
+
+@app.route('/project/<int:project_id>/update_made_count', methods=['POST'])
+def update_made_count(project_id):
     project = Project.query.get_or_404(project_id)
     action = request.form.get('action')
     
     if action == 'increment':
-        project.current_round += 1
-    elif action == 'decrement' and project.current_round > 1:
-        project.current_round -= 1
+        project.made_count += 1
+    elif action == 'decrement' and project.made_count > 0:
+        project.made_count -= 1
     elif action == 'reset':
-        project.current_round = 1
-    elif action == 'set':
-        new_round = int(request.form.get('round_number', 1))
-        if new_round > 0:
-            project.current_round = new_round
+        project.made_count = 0
     
     db.session.commit()
     return redirect(url_for('project_detail', project_id=project_id))
@@ -248,6 +258,34 @@ def update_round(project_id):
 def update_notes(project_id):
     project = Project.query.get_or_404(project_id)
     project.notes = request.form.get('notes', '')
+    db.session.commit()
+    return redirect(url_for('project_detail', project_id=project_id))
+
+@app.route('/project/<int:project_id>/update_tags', methods=['POST'])
+def update_tags(project_id):
+    project = Project.query.get_or_404(project_id)
+    
+    # Clear existing tags
+    project.tags.clear()
+    
+    # Add new tags
+    tags = request.form.get('tags', '').split(',')
+    for tag_name in tags:
+        tag_name = tag_name.strip()
+        if tag_name:
+            tag = Tag.query.filter_by(name=tag_name).first()
+            if not tag:
+                tag = Tag(name=tag_name)
+                db.session.add(tag)
+            project.tags.append(tag)
+    
+    db.session.commit()
+    return redirect(url_for('project_detail', project_id=project_id))
+
+@app.route('/project/<int:project_id>/update_link', methods=['POST'])
+def update_link(project_id):
+    project = Project.query.get_or_404(project_id)
+    project.external_link = request.form.get('external_link', '').strip()
     db.session.commit()
     return redirect(url_for('project_detail', project_id=project_id))
 
