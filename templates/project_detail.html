@@ -210,16 +210,18 @@
         <form method="POST" action="{{ url_for('add_material', project_id=project.id) }}" class="mb-4" id="addMaterialForm">
             <div class="mb-3">
                 <label class="form-label">Material</label>
-                <div class="input-group">
-                    <input type="text" class="form-control" id="materialSearch" 
-                           placeholder="Search materials..." autocomplete="off">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" 
-                            data-bs-target="#newMaterialModal">
-                        New Material
-                    </button>
+                <div class="position-relative">
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="materialSearch" 
+                               placeholder="Search materials..." autocomplete="off">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" 
+                                data-bs-target="#newMaterialModal">
+                            New Material
+                        </button>
+                    </div>
+                    <input type="hidden" name="material_type_id" id="materialTypeId">
+                    <div id="materialSuggestions" class="list-group mt-1 position-absolute w-100" style="z-index: 1000; display: none;"></div>
                 </div>
-                <input type="hidden" name="material_type_id" id="materialTypeId">
-                <div id="materialSuggestions" class="list-group mt-1 position-absolute" style="z-index: 1000; display: none;"></div>
             </div>
             <div class="mb-3">
                 <label class="form-label">Quantity</label>
@@ -275,9 +277,14 @@
                 }
 
                 searchTimeout = setTimeout(() => {
+                    console.log('Searching for:', query);
                     fetch(`/materials/search?q=${encodeURIComponent(query)}`)
-                        .then(response => response.json())
+                        .then(response => {
+                            console.log('Search response:', response);
+                            return response.json();
+                        })
                         .then(materials => {
+                            console.log('Found materials:', materials);
                             materialSuggestions.innerHTML = '';
                             materials.forEach(material => {
                                 const item = document.createElement('a');
@@ -328,8 +335,9 @@
                     <input type="hidden" name="description" value="${description}">
                 `;
 
-                // Close modal
-                bootstrap.Modal.getInstance(document.getElementById('newMaterialModal')).hide();
+                // Close the modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('newMaterialModal'));
+                modal.hide();
             }
         </script>
     </div>
