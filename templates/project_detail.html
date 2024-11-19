@@ -5,24 +5,102 @@
     <div class="col-md-8">
         <div class="d-flex justify-content-between align-items-start mb-3">
             <h1 class="mb-0">{{ project.title }}</h1>
-            <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteProjectModal">
-                Delete Project
-            </button>
+            <div class="btn-group">
+                <form method="POST" action="{{ url_for('reset_all_steps', project_id=project.id) }}" class="d-inline me-2">
+                    <button type="submit" class="btn btn-outline-secondary">Reset All Steps</button>
+                </form>
+                <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteProjectModal">
+                    Delete Project
+                </button>
+            </div>
         </div>
         
-        {% if project.tags %}
-        <div class="mb-3">
-            {% for tag in project.tags %}
-            <span class="badge bg-secondary">{{ tag.name }}</span>
-            {% endfor %}
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Tags</h5>
+                <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editTagsModal">
+                    Edit Tags
+                </button>
+            </div>
+            <div class="card-body">
+                {% if project.tags %}
+                    {% for tag in project.tags %}
+                    <span class="badge bg-secondary me-1">{{ tag.name }}</span>
+                    {% endfor %}
+                {% else %}
+                    <em class="text-muted">No tags added yet</em>
+                {% endif %}
+            </div>
         </div>
-        {% endif %}
 
-        {% if project.external_link %}
-        <div class="mb-3">
-            <a href="{{ project.external_link }}" target="_blank" class="btn btn-outline-primary">View External Link</a>
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">External Link</h5>
+                <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editLinkModal">
+                    Edit Link
+                </button>
+            </div>
+            <div class="card-body">
+                {% if project.external_link %}
+                    <a href="{{ project.external_link }}" target="_blank" class="btn btn-outline-primary">View External Link</a>
+                {% else %}
+                    <em class="text-muted">No external link added yet</em>
+                {% endif %}
+            </div>
         </div>
-        {% endif %}
+
+        <!-- Edit Tags Modal -->
+        <div class="modal fade" id="editTagsModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Edit Tags</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <form method="POST" action="{{ url_for('update_tags', project_id=project.id) }}">
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label class="form-label">Tags (comma-separated)</label>
+                                <input type="text" class="form-control" name="tags" 
+                                       value="{{ project.tags|map(attribute='name')|join(', ') }}"
+                                       placeholder="e.g. amigurumi, beginner, quick">
+                                <div class="form-text">Enter tags separated by commas</div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn btn-primary">Save Tags</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Edit Link Modal -->
+        <div class="modal fade" id="editLinkModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Edit External Link</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <form method="POST" action="{{ url_for('update_link', project_id=project.id) }}">
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label class="form-label">External Link URL</label>
+                                <input type="url" class="form-control" name="external_link" 
+                                       value="{{ project.external_link or '' }}"
+                                       placeholder="https://example.com/pattern">
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn btn-primary">Save Link</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
 
         <!-- Delete Project Modal -->
         <div class="modal fade" id="deleteProjectModal" tabindex="-1">
@@ -55,17 +133,15 @@
 
         <div class="card mb-4">
             <div class="card-header">
-                <h5 class="mb-0">Round Counter</h5>
+                <h5 class="mb-0">Made It Counter</h5>
             </div>
             <div class="card-body">
                 <div class="d-flex align-items-center mb-3">
-                    <h3 class="me-3 mb-0">Round {{ project.current_round }}</h3>
-                    <form method="POST" action="{{ url_for('update_round', project_id=project.id) }}" class="d-flex gap-2">
-                        <button type="submit" name="action" value="decrement" class="btn btn-outline-secondary">&minus;</button>
+                    <h3 class="me-3 mb-0">Made {{ project.made_count }} times</h3>
+                    <form method="POST" action="{{ url_for('update_made_count', project_id=project.id) }}" class="d-flex gap-2">
+                        <button type="submit" name="action" value="decrement" class="btn btn-outline-secondary" {% if project.made_count == 0 %}disabled{% endif %}>&minus;</button>
                         <button type="submit" name="action" value="increment" class="btn btn-outline-secondary">&plus;</button>
-                        <button type="submit" name="action" value="reset" class="btn btn-outline-danger">Reset</button>
-                        <input type="number" name="round_number" class="form-control" style="width: 100px" min="1" value="{{ project.current_round }}">
-                        <button type="submit" name="action" value="set" class="btn btn-outline-primary">Set</button>
+                        <button type="submit" name="action" value="reset" class="btn btn-outline-danger" {% if project.made_count == 0 %}disabled{% endif %}>Reset</button>
                     </form>
                 </div>
             </div>
@@ -100,17 +176,162 @@
         <h3>Materials</h3>
         <ul class="list-group mb-3">
             {% for material in project.materials %}
-            <li class="list-group-item">{{ material.name }} - {{ material.quantity }}</li>
+            <li class="list-group-item">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <strong>{{ material.material_type.brand }}</strong> - {{ material.material_type.name }}
+                        {% if material.quantity %}
+                        <br><small class="text-muted">Quantity: {{ material.quantity }}</small>
+                        {% endif %}
+                        {% if material.material_type.description %}
+                        <br><small class="text-muted">{{ material.material_type.description }}</small>
+                        {% endif %}
+                    </div>
+                    <div class="ms-2">
+                        {% if material.material_type.external_link %}
+                        <a href="{{ material.material_type.external_link }}" target="_blank" 
+                           class="btn btn-sm btn-outline-primary me-1">
+                            <i class="bi bi-link-45deg"></i>
+                        </a>
+                        {% endif %}
+                        <form method="POST" action="{{ url_for('delete_material', material_id=material.id) }}" 
+                              class="d-inline">
+                            <button type="submit" class="btn btn-sm btn-outline-danger"
+                                    onclick="return confirm('Remove this material from the project?')">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </li>
             {% endfor %}
         </ul>
 
-        <form method="POST" action="{{ url_for('add_material', project_id=project.id) }}" class="mb-4">
-            <div class="input-group mb-3">
-                <input type="text" class="form-control" name="material_name" placeholder="Material name" required>
-                <input type="text" class="form-control" name="quantity" placeholder="Quantity" required>
-                <button class="btn btn-outline-secondary" type="submit">Add Material</button>
+        <form method="POST" action="{{ url_for('add_material', project_id=project.id) }}" class="mb-4" id="addMaterialForm">
+            <div class="mb-3">
+                <label class="form-label">Material</label>
+                <div class="input-group">
+                    <input type="text" class="form-control" id="materialSearch" 
+                           placeholder="Search materials..." autocomplete="off">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" 
+                            data-bs-target="#newMaterialModal">
+                        New Material
+                    </button>
+                </div>
+                <input type="hidden" name="material_type_id" id="materialTypeId">
+                <div id="materialSuggestions" class="list-group mt-1 position-absolute" style="z-index: 1000; display: none;"></div>
             </div>
+            <div class="mb-3">
+                <label class="form-label">Quantity</label>
+                <input type="text" class="form-control" name="quantity" required>
+            </div>
+            <button class="btn btn-primary" type="submit">Add Material</button>
         </form>
+
+        <!-- New Material Modal -->
+        <div class="modal fade" id="newMaterialModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Add New Material</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Brand</label>
+                            <input type="text" class="form-control" id="newMaterialBrand" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Name</label>
+                            <input type="text" class="form-control" id="newMaterialName" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Description</label>
+                            <textarea class="form-control" id="newMaterialDescription"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-primary" onclick="addNewMaterial()">Add Material</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            let searchTimeout;
+            const materialSearch = document.getElementById('materialSearch');
+            const materialSuggestions = document.getElementById('materialSuggestions');
+            const materialTypeId = document.getElementById('materialTypeId');
+            const addMaterialForm = document.getElementById('addMaterialForm');
+
+            materialSearch.addEventListener('input', function() {
+                clearTimeout(searchTimeout);
+                const query = this.value.trim();
+                
+                if (query.length < 2) {
+                    materialSuggestions.style.display = 'none';
+                    return;
+                }
+
+                searchTimeout = setTimeout(() => {
+                    fetch(`/materials/search?q=${encodeURIComponent(query)}`)
+                        .then(response => response.json())
+                        .then(materials => {
+                            materialSuggestions.innerHTML = '';
+                            materials.forEach(material => {
+                                const item = document.createElement('a');
+                                item.href = '#';
+                                item.className = 'list-group-item list-group-item-action';
+                                item.innerHTML = `<strong>${material.brand}</strong> - ${material.name}`;
+                                if (material.description) {
+                                    item.innerHTML += `<br><small class="text-muted">${material.description}</small>`;
+                                }
+                                
+                                item.addEventListener('click', (e) => {
+                                    e.preventDefault();
+                                    materialSearch.value = `${material.brand} - ${material.name}`;
+                                    materialTypeId.value = material.id;
+                                    materialSuggestions.style.display = 'none';
+                                });
+                                
+                                materialSuggestions.appendChild(item);
+                            });
+                            
+                            if (materials.length > 0) {
+                                materialSuggestions.style.display = 'block';
+                            } else {
+                                materialSuggestions.style.display = 'none';
+                            }
+                        });
+                }, 300);
+            });
+
+            document.addEventListener('click', function(e) {
+                if (!materialSearch.contains(e.target) && !materialSuggestions.contains(e.target)) {
+                    materialSuggestions.style.display = 'none';
+                }
+            });
+
+            function addNewMaterial() {
+                const brand = document.getElementById('newMaterialBrand').value;
+                const name = document.getElementById('newMaterialName').value;
+                const description = document.getElementById('newMaterialDescription').value;
+
+                materialSearch.value = `${brand} - ${name}`;
+                materialTypeId.value = '';  // Clear ID to indicate new material
+                
+                // Add hidden inputs for the new material
+                addMaterialForm.innerHTML += `
+                    <input type="hidden" name="brand" value="${brand}">
+                    <input type="hidden" name="name" value="${name}">
+                    <input type="hidden" name="description" value="${description}">
+                `;
+
+                // Close modal
+                bootstrap.Modal.getInstance(document.getElementById('newMaterialModal')).hide();
+            }
+        </script>
     </div>
 </div>
 
@@ -175,78 +396,83 @@
                         </div>
                     </div>
                 </div>
+            </div>
             <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h5 class="mb-0">Steps</h5>
-                    <form method="POST" action="{{ url_for('reset_steps', part_id=part.id) }}" class="d-inline">
-                        <button type="submit" class="btn btn-sm btn-outline-secondary">Reset All Steps</button>
+                <div class="steps-list">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="mb-0">Steps</h5>
+                        <div class="btn-group">
+                            <form method="POST" action="{{ url_for('reset_steps', part_id=part.id) }}" class="d-inline">
+                                <button type="submit" class="btn btn-sm btn-outline-secondary">Reset Part Steps</button>
+                            </form>
+                        </div>
+                    </div>
+
+                    {% for step in part.steps %}
+                    <div class="step-item mb-2">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="d-flex align-items-start">
+                                <form method="POST" action="{{ url_for('toggle_step', step_id=step.id) }}" class="me-2">
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" id="step{{ step.id }}" 
+                                               {% if step.completed %}checked{% endif %}
+                                               onchange="this.form.submit()">
+                                        <label class="form-check-label" for="step{{ step.id }}">
+                                            <strong>{{ step.round_number }}:</strong>
+                                        </label>
+                                    </div>
+                                </form>
+                                <div class="flex-grow-1 {% if step.completed %}text-decoration-line-through text-muted{% endif %}">
+                                    {{ step.instructions }}
+                                </div>
+                            </div>
+                            <div class="btn-group ms-2">
+                                <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editStep{{ step.id }}">Edit</button>
+                                <form method="POST" action="{{ url_for('delete_step', step_id=step.id) }}" class="d-inline">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Are you sure you want to delete this step?')">Delete</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Edit Step Modal -->
+                    <div class="modal fade" id="editStep{{ step.id }}" tabindex="-1">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Edit Step</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <form method="POST" action="{{ url_for('edit_step', step_id=step.id) }}">
+                                    <div class="modal-body">
+                                        <div class="mb-3">
+                                            <label class="form-label">Round Number</label>
+                                            <input type="text" class="form-control" name="round_number" value="{{ step.round_number }}" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Instructions</label>
+                                            <input type="text" class="form-control" name="instructions" value="{{ step.instructions }}" required>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+
+                    <form method="POST" action="{{ url_for('add_step', part_id=part.id) }}" class="mt-3">
+                        <div class="input-group">
+                            <input type="text" class="form-control" name="round_number" placeholder="Round" required>
+                            <input type="text" class="form-control" name="instructions" placeholder="Instructions" required>
+                            <button type="submit" class="btn btn-outline-secondary">Add Step</button>
+                        </div>
                     </form>
                 </div>
-
-                {% for step in part.steps %}
-                <div class="mb-3 border-bottom pb-2">
-                    <div class="d-flex justify-content-between align-items-start">
-                        <div class="d-flex align-items-center">
-                            <form method="POST" action="{{ url_for('toggle_step', step_id=step.id) }}" class="me-2">
-                                <button type="submit" class="btn btn-sm {% if step.completed %}btn-success{% else %}btn-outline-secondary{% endif %}">
-                                    <i class="bi {% if step.completed %}bi-check-square{% else %}bi-square{% endif %}"></i>
-                                </button>
-                            </form>
-                            <div {% if step.completed %}class="text-decoration-line-through"{% endif %}>
-                                <strong>{{ step.round_number }}:</strong> {{ step.instructions }}
-                            </div>
-                        </div>
-                        <div class="btn-group ms-2">
-                            <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editStep{{ step.id }}">Edit</button>
-                            <form method="POST" action="{{ url_for('delete_step', step_id=step.id) }}" class="d-inline">
-                                <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Are you sure you want to delete this step?')">Delete</button>
-                            </form>
-                        </div>
-                    </div>
                 </div>
-
-                <!-- Edit Step Modal -->
-                <div class="modal fade" id="editStep{{ step.id }}" tabindex="-1">
-                    <div class="modal-dialog">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h5 class="modal-title">Edit Step</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                            </div>
-                            <form method="POST" action="{{ url_for('edit_step', step_id=step.id) }}">
-                                <div class="modal-body">
-                                    <div class="mb-3">
-                                        <label class="form-label">Round Number</label>
-                                        <input type="text" class="form-control" name="round_number" value="{{ step.round_number }}" required>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label">Instructions</label>
-                                        <input type="text" class="form-control" name="instructions" value="{{ step.instructions }}" required>
-                                    </div>
-                                </div>
-                                <div class="modal-footer">
-                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                                    <button type="submit" class="btn btn-primary">Save Changes</button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-                {% endfor %}
-
-                <form method="POST" action="{{ url_for('add_step', part_id=part.id) }}" class="mt-3">
-                    <div class="row">
-                        <div class="col-md-2">
-                            <input type="text" class="form-control" name="round_number" placeholder="Round" required>
-                        </div>
-                        <div class="col-md-8">
-                            <input type="text" class="form-control" name="instructions" placeholder="Instructions" required>
-                        </div>
-                        <div class="col-md-2">
-                            <button type="submit" class="btn btn-outline-secondary w-100">Add Step</button>
-                        </div>
-                    </div>
-                </form>
             </div>
         </div>
         {% endfor %}
