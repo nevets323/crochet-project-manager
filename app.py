@@ -34,11 +34,20 @@ class Tag(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50), unique=True, nullable=False)
 
+class MaterialType(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    brand = db.Column(db.String(100), nullable=False)
+    name = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text)
+    external_link = db.Column(db.String(500))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    materials = db.relationship('Material', backref='material_type', lazy=True)
+
 class Material(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
     quantity = db.Column(db.String(50))
     project_id = db.Column(db.Integer, db.ForeignKey('project.id'), nullable=False)
+    material_type_id = db.Column(db.Integer, db.ForeignKey('material_type.id'), nullable=False)
 
 class Part(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -289,12 +298,83 @@ def update_link(project_id):
     db.session.commit()
     return redirect(url_for('project_detail', project_id=project_id))
 
+@app.route('/materials')
+def materials_list():
+    materials = MaterialType.query.order_by(MaterialType.brand, MaterialType.name).all()
+    return render_template('materials.html', materials=materials)
+
+@app.route('/materials/new', methods=['GET', 'POST'])
+def new_material():
+    if request.method == 'POST':
+        material = MaterialType(
+            brand=request.form['brand'],
+            name=request.form['name'],
+            description=request.form.get('description', ''),
+            external_link=request.form.get('external_link', '')
+        )
+        db.session.add(material)
+        db.session.commit()
+        return redirect(url_for('materials_list'))
+    return render_template('new_material.html')
+
+@app.route('/materials/<int:material_id>/edit', methods=['GET', 'POST'])
+def edit_material(material_id):
+    material = MaterialType.query.get_or_404(material_id)
+    if request.method == 'POST':
+        material.brand = request.form['brand']
+        material.name = request.form['name']
+        material.description = request.form.get('description', '')
+        material.external_link = request.form.get('external_link', '')
+        db.session.commit()
+        return redirect(url_for('materials_list'))
+    return render_template('edit_material.html', material=material)
+
+@app.route('/materials/<int:material_id>/delete', methods=['POST'])
+def delete_material(material_id):
+    material = MaterialType.query.get_or_404(material_id)
+    db.session.delete(material)
+    db.session.commit()
+    return redirect(url_for('materials_list'))
+
+@app.route('/materials/search')
+def search_materials():
+    query = request.args.get('q', '').strip()
+    materials = MaterialType.query.filter(
+        db.or_(
+            MaterialType.name.ilike(f'%{query}%'),
+            MaterialType.brand.ilike(f'%{query}%')
+        )
+    ).order_by(MaterialType.brand, MaterialType.name).all()
+    
+    return jsonify([{
+        'id': m.id,
+        'brand': m.brand,
+        'name': m.name,
+        'description': m.description
+    } for m in materials])
+
 @app.route('/project/<int:project_id>/add_material', methods=['POST'])
 def add_material(project_id):
     project = Project.query.get_or_404(project_id)
-    name = request.form['material_name']
+    material_type_id = request.form.get('material_type_id')
     quantity = request.form['quantity']
-    material = Material(name=name, quantity=quantity, project=project)
+    
+    # If material_type_id is not provided, create a new MaterialType
+    if not material_type_id:
+        material_type = MaterialType(
+            brand=request.form['brand'],
+            name=request.form['name'],
+            description=request.form.get('description', '')
+        )
+        db.session.add(material_type)
+        db.session.flush()  # Get the ID of the new material type
+        material_type_id = material_type.id
+    
+    material = Material(
+        quantity=quantity,
+        project=project,
+        material_type_id=material_type_id
+    )
     db.session.add(material)
     db.session.commit()
     return redirect(url_for('project_detail', project_id=project_id))

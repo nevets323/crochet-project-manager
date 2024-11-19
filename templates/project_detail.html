@@ -176,17 +176,162 @@
         <h3>Materials</h3>
         <ul class="list-group mb-3">
             {% for material in project.materials %}
-            <li class="list-group-item">{{ material.name }} - {{ material.quantity }}</li>
+            <li class="list-group-item">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <strong>{{ material.material_type.brand }}</strong> - {{ material.material_type.name }}
+                        {% if material.quantity %}
+                        <br><small class="text-muted">Quantity: {{ material.quantity }}</small>
+                        {% endif %}
+                        {% if material.material_type.description %}
+                        <br><small class="text-muted">{{ material.material_type.description }}</small>
+                        {% endif %}
+                    </div>
+                    <div class="ms-2">
+                        {% if material.material_type.external_link %}
+                        <a href="{{ material.material_type.external_link }}" target="_blank" 
+                           class="btn btn-sm btn-outline-primary me-1">
+                            <i class="bi bi-link-45deg"></i>
+                        </a>
+                        {% endif %}
+                        <form method="POST" action="{{ url_for('delete_material', material_id=material.id) }}" 
+                              class="d-inline">
+                            <button type="submit" class="btn btn-sm btn-outline-danger"
+                                    onclick="return confirm('Remove this material from the project?')">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </li>
             {% endfor %}
         </ul>
 
-        <form method="POST" action="{{ url_for('add_material', project_id=project.id) }}" class="mb-4">
-            <div class="input-group mb-3">
-                <input type="text" class="form-control" name="material_name" placeholder="Material name" required>
-                <input type="text" class="form-control" name="quantity" placeholder="Quantity" required>
-                <button class="btn btn-outline-secondary" type="submit">Add Material</button>
+        <form method="POST" action="{{ url_for('add_material', project_id=project.id) }}" class="mb-4" id="addMaterialForm">
+            <div class="mb-3">
+                <label class="form-label">Material</label>
+                <div class="input-group">
+                    <input type="text" class="form-control" id="materialSearch" 
+                           placeholder="Search materials..." autocomplete="off">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" 
+                            data-bs-target="#newMaterialModal">
+                        New Material
+                    </button>
+                </div>
+                <input type="hidden" name="material_type_id" id="materialTypeId">
+                <div id="materialSuggestions" class="list-group mt-1 position-absolute" style="z-index: 1000; display: none;"></div>
             </div>
+            <div class="mb-3">
+                <label class="form-label">Quantity</label>
+                <input type="text" class="form-control" name="quantity" required>
+            </div>
+            <button class="btn btn-primary" type="submit">Add Material</button>
         </form>
+
+        <!-- New Material Modal -->
+        <div class="modal fade" id="newMaterialModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Add New Material</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Brand</label>
+                            <input type="text" class="form-control" id="newMaterialBrand" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Name</label>
+                            <input type="text" class="form-control" id="newMaterialName" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Description</label>
+                            <textarea class="form-control" id="newMaterialDescription"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-primary" onclick="addNewMaterial()">Add Material</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            let searchTimeout;
+            const materialSearch = document.getElementById('materialSearch');
+            const materialSuggestions = document.getElementById('materialSuggestions');
+            const materialTypeId = document.getElementById('materialTypeId');
+            const addMaterialForm = document.getElementById('addMaterialForm');
+
+            materialSearch.addEventListener('input', function() {
+                clearTimeout(searchTimeout);
+                const query = this.value.trim();
+                
+                if (query.length < 2) {
+                    materialSuggestions.style.display = 'none';
+                    return;
+                }
+
+                searchTimeout = setTimeout(() => {
+                    fetch(`/materials/search?q=${encodeURIComponent(query)}`)
+                        .then(response => response.json())
+                        .then(materials => {
+                            materialSuggestions.innerHTML = '';
+                            materials.forEach(material => {
+                                const item = document.createElement('a');
+                                item.href = '#';
+                                item.className = 'list-group-item list-group-item-action';
+                                item.innerHTML = `<strong>${material.brand}</strong> - ${material.name}`;
+                                if (material.description) {
+                                    item.innerHTML += `<br><small class="text-muted">${material.description}</small>`;
+                                }
+                                
+                                item.addEventListener('click', (e) => {
+                                    e.preventDefault();
+                                    materialSearch.value = `${material.brand} - ${material.name}`;
+                                    materialTypeId.value = material.id;
+                                    materialSuggestions.style.display = 'none';
+                                });
+                                
+                                materialSuggestions.appendChild(item);
+                            });
+                            
+                            if (materials.length > 0) {
+                                materialSuggestions.style.display = 'block';
+                            } else {
+                                materialSuggestions.style.display = 'none';
+                            }
+                        });
+                }, 300);
+            });
+
+            document.addEventListener('click', function(e) {
+                if (!materialSearch.contains(e.target) && !materialSuggestions.contains(e.target)) {
+                    materialSuggestions.style.display = 'none';
+                }
+            });
+
+            function addNewMaterial() {
+                const brand = document.getElementById('newMaterialBrand').value;
+                const name = document.getElementById('newMaterialName').value;
+                const description = document.getElementById('newMaterialDescription').value;
+
+                materialSearch.value = `${brand} - ${name}`;
+                materialTypeId.value = '';  // Clear ID to indicate new material
+                
+                // Add hidden inputs for the new material
+                addMaterialForm.innerHTML += `
+                    <input type="hidden" name="brand" value="${brand}">
+                    <input type="hidden" name="name" value="${name}">
+                    <input type="hidden" name="description" value="${description}">
+                `;
+
+                // Close modal
+                bootstrap.Modal.getInstance(document.getElementById('newMaterialModal')).hide();
+            }
+        </script>
     </div>
 </div>
 
