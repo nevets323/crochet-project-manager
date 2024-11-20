@@ -331,8 +331,11 @@ def edit_material(material_id):
 
 @app.route('/materials/<int:material_id>/delete', methods=['POST'])
 def delete_material(material_id):
-    material = MaterialType.query.get_or_404(material_id)
-    db.session.delete(material)
+    material_type = MaterialType.query.get_or_404(material_id)
+    # First delete all Material records that reference this MaterialType
+    Material.query.filter_by(material_type_id=material_id).delete()
+    # Then delete the MaterialType
+    db.session.delete(material_type)
     db.session.commit()
     return redirect(url_for('materials_list'))
 
