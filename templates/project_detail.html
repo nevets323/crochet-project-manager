@@ -194,7 +194,7 @@
                             <i class="bi bi-link-45deg"></i>
                         </a>
                         {% endif %}
-                        <form method="POST" action="{{ url_for('delete_material', material_id=material.id) }}" 
+                        <form method="POST" action="{{ url_for('delete_project_material', project_id=project.id, material_id=material.id) }}" 
                               class="d-inline">
                             <button type="submit" class="btn btn-sm btn-outline-danger"
                                     onclick="return confirm('Remove this material from the project?')">

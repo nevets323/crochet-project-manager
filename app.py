@@ -329,10 +329,20 @@ def edit_material(material_id):
         return redirect(url_for('materials_list'))
     return render_template('edit_material.html', material=material)
 
-@app.route('/materials/<int:material_id>/delete', methods=['POST'])
-def delete_material(material_id):
-    material = MaterialType.query.get_or_404(material_id)
+@app.route('/project/<int:project_id>/material/<int:material_id>/delete', methods=['POST'])
+def delete_project_material(project_id, material_id):
+    material = Material.query.filter_by(id=material_id, project_id=project_id).first_or_404()
     db.session.delete(material)
+    db.session.commit()
+    return redirect(url_for('project_detail', project_id=project_id))
+
+@app.route('/materials/<int:material_id>/delete', methods=['POST'])
+def delete_material_type(material_id):
+    material_type = MaterialType.query.get_or_404(material_id)
+    # First delete all Material records that reference this MaterialType
+    Material.query.filter_by(material_type_id=material_id).delete()
+    # Then delete the MaterialType
+    db.session.delete(material_type)
     db.session.commit()
     return redirect(url_for('materials_list'))
 
