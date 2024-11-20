@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-8">
+        <h1>Materials Library</h1>
+    </div>
+    <div class="col-md-4 text-end">
+        <a href="{{ url_for('new_material') }}" class="btn btn-primary">Add New Material</a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Brand</th>
+                        <th>Name</th>
+                        <th>Description</th>
+                        <th>External Link</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for material in materials %}
+                    <tr>
+                        <td>{{ material.brand }}</td>
+                        <td>{{ material.name }}</td>
+                        <td>{{ material.description }}</td>
+                        <td>
+                            {% if material.external_link %}
+                            <a href="{{ material.external_link }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-link-45deg"></i> View
+                            </a>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="btn-group">
+                                <a href="{{ url_for('edit_material', material_id=material.id) }}" 
+                                   class="btn btn-sm btn-outline-primary">Edit</a>
+                                <button type="button" class="btn btn-sm btn-outline-danger" 
+                                        data-bs-toggle="modal" data-bs-target="#deleteMaterial{{ material.id }}">
+                                    Delete
+                                </button>
+                            </div>
+
+                            <!-- Delete Material Modal -->
+                            <div class="modal fade" id="deleteMaterial{{ material.id }}" tabindex="-1">
+                                <div class="modal-dialog">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title">Delete Material</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            <p>Are you sure you want to delete "{{ material.brand }} - {{ material.name }}"?</p>
+                                            <p class="text-danger">This will also remove this material from any projects that use it.</p>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                            <form method="POST" action="{{ url_for('delete_material_type', material_id=material.id) }}">
+                                                <button type="submit" class="btn btn-danger">Delete Material</button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if not materials %}
+        <div class="alert alert-info">
+            No materials added yet. <a href="{{ url_for('new_material') }}">Add your first material</a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
