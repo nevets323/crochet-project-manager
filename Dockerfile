@@ -24,5 +24,9 @@ ENV FLASK_ENV=production
 # Expose port
 EXPOSE 5000
 
+# Create startup script
+COPY start.sh /app/start.sh
+RUN chmod +x /app/start.sh
+
 # Run the application
-CMD ["flask", "run", "--host=0.0.0.0"]
+CMD ["/app/start.sh"]
