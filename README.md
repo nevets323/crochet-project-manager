@@ -49,6 +49,16 @@ A Flask web application to help crocheters manage their projects, materials, and
    python3 -c "import secrets; print(f'FLASK_SECRET_KEY={secrets.token_hex(32)}')" > .env
    ```
 
+   Example .env file format:
+   ```env
+   # Required
+   FLASK_SECRET_KEY=your-generated-secret-key-here
+
+   # Optional - defaults shown
+   # FLASK_ENV=production
+   # FLASK_APP=app.py
+   ```
+
 4. Build and start the container:
    ```bash
    docker-compose up -d
