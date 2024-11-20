@@ -44,9 +44,22 @@ A Flask web application to help crocheters manage their projects, materials, and
    ```
 
 3. Create a .env file with a secure secret key:
+
+   **On Linux/Mac:**
    ```bash
    # Generate a secure key
    python3 -c "import secrets; print(f'FLASK_SECRET_KEY={secrets.token_hex(32)}')" > .env
+   ```
+
+   **On Windows:**
+   ```powershell
+   # Option 1: Using PowerShell (recommended)
+   python -c "import secrets; print(f'FLASK_SECRET_KEY={secrets.token_hex(32)}')" | Out-File -Encoding utf8 .env
+
+   # Option 2: Create manually in Notepad
+   # 1. Open Notepad
+   # 2. Type or paste the content below
+   # 3. Save as ".env" (with quotes) and select "UTF-8" encoding
    ```
 
    Example .env file format:
@@ -58,6 +71,11 @@ A Flask web application to help crocheters manage their projects, materials, and
    # FLASK_ENV=production
    # FLASK_APP=app.py
    ```
+
+   **Important Note for Windows Users:**
+   - Ensure the .env file is saved with UTF-8 encoding
+   - Avoid using Notepad++ or other editors that might add a BOM marker
+   - If you see strange characters in the file, recreate it using one of the methods above
 
 4. Build and start the container:
    ```bash
@@ -75,6 +93,50 @@ To stop the container:
 ```bash
 docker-compose down
 ```
+
+### Windows-Specific Setup
+
+1. Prerequisites:
+   - Install [Docker Desktop for Windows](https://docs.docker.com/desktop/install/windows-install/)
+   - Ensure Docker Desktop is running (check the system tray)
+   - Enable WSL 2 (Windows Subsystem for Linux) if prompted
+
+2. Common Issues and Solutions:
+
+   a. "docker-compose" command not found:
+   ```bash
+   # Use docker compose (with a space) instead
+   docker compose up -d
+   ```
+
+   b. Permission issues:
+   - Run Command Prompt or PowerShell as Administrator
+   - Ensure Docker Desktop has Windows permissions
+
+   c. Port 5000 already in use:
+   - Windows may use port 5000 for "Windows Phone IP over USB Transport"
+   - Edit docker-compose.yml to use a different port:
+     ```yaml
+     ports:
+       - "5001:5000"  # Change 5001 to any available port
+     ```
+
+   d. Path issues:
+   - Use forward slashes (/) in paths
+   - Avoid spaces in directory names
+   - Use full paths if needed
+
+3. Checking Docker status:
+   ```bash
+   # Verify Docker is running
+   docker info
+
+   # Check container status
+   docker ps
+
+   # View container logs
+   docker compose logs
+   ```
 
 ### Manual Installation
 
