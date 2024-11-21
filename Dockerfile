@@ -3,9 +3,17 @@ FROM python:3.12-slim
 WORKDIR /app
 
 # Install system dependencies
-RUN apt-get update && apt-get install -y \
+RUN apt-get clean && \
+    rm -rf /var/lib/apt/lists/* && \
+    apt-get update --fix-missing && \
+    apt-get install -y \
     gcc \
-    && rm -rf /var/lib/apt/lists/*
+    wget \
+    gnupg && \
+    # Add Debian repository keys
+    wget --no-check-certificate https://packages.debian.org/bookworm/amd64/debian-archive-keyring/download -O /usr/share/keyrings/debian-archive-keyring.gpg && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first to leverage Docker cache
 COPY requirements.txt .
