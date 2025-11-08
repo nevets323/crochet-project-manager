@@ -1,16 +1,47 @@
-from flask import Flask, render_template, request, redirect, url_for, jsonify
+from flask import Flask, render_template, request, redirect, url_for, jsonify, flash
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
+from werkzeug.utils import secure_filename
+from PIL import Image
 import os
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY', 'dev-key-do-not-use-in-production')
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///crochet.db'
 app.config['UPLOAD_FOLDER'] = 'static/uploads'
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+app.config['ALLOWED_EXTENSIONS'] = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+app.config['THUMBNAIL_SIZE'] = (800, 800)  # Max dimensions for thumbnails
 db = SQLAlchemy(app)
 
 # Ensure upload directory exists
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+
+# Helper functions
+def allowed_file(filename):
+    """Check if file extension is allowed"""
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
+
+def resize_image(image_path, max_size=(800, 800)):
+    """Resize image to fit within max_size while maintaining aspect ratio"""
+    try:
+        with Image.open(image_path) as img:
+            # Convert RGBA to RGB if necessary
+            if img.mode in ('RGBA', 'LA', 'P'):
+                background = Image.new('RGB', img.size, (255, 255, 255))
+                background.paste(img, mask=img.split()[-1] if img.mode == 'RGBA' else None)
+                img = background
+
+            # Resize maintaining aspect ratio
+            img.thumbnail(max_size, Image.Resampling.LANCZOS)
+
+            # Save as JPEG with optimization
+            img.save(image_path, 'JPEG', quality=85, optimize=True)
+            return True
+    except Exception as e:
+        print(f"Error resizing image: {e}")
+        return False
 
 # Association table for project tags
 project_tags = db.Table('project_tags',
@@ -105,34 +136,72 @@ def index():
 @app.route('/project/new', methods=['GET', 'POST'])
 def new_project():
     if request.method == 'POST':
-        title = request.form['title']
-        external_link = request.form['external_link']
-        notes = request.form['notes']
-        
-        project = Project(title=title, external_link=external_link, notes=notes)
-        
-        # Handle thumbnail upload
-        if 'thumbnail' in request.files:
-            file = request.files['thumbnail']
-            if file.filename:
-                filename = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{file.filename}"
-                file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-                project.thumbnail = filename
+        try:
+            # Validate required fields
+            title = request.form.get('title', '').strip()
+            if not title:
+                flash('Project title is required.', 'error')
+                return redirect(url_for('new_project'))
 
-        # Handle tags
-        tags = request.form['tags'].split(',')
-        for tag_name in tags:
-            tag_name = tag_name.strip()
-            if tag_name:
-                tag = Tag.query.filter_by(name=tag_name).first()
-                if not tag:
-                    tag = Tag(name=tag_name)
-                    db.session.add(tag)
-                project.tags.append(tag)
+            if len(title) > 100:
+                flash('Project title must be 100 characters or less.', 'error')
+                return redirect(url_for('new_project'))
 
-        db.session.add(project)
-        db.session.commit()
-        return redirect(url_for('project_detail', project_id=project.id))
+            external_link = request.form.get('external_link', '').strip()
+            notes = request.form.get('notes', '').strip()
+
+            project = Project(title=title, external_link=external_link, notes=notes)
+
+            # Handle thumbnail upload
+            if 'thumbnail' in request.files:
+                file = request.files['thumbnail']
+                if file and file.filename:
+                    if not allowed_file(file.filename):
+                        flash('Invalid file type. Allowed types: PNG, JPG, JPEG, GIF, WEBP', 'error')
+                        return redirect(url_for('new_project'))
+
+                    # Secure the filename and add timestamp
+                    original_filename = secure_filename(file.filename)
+                    filename = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{original_filename}"
+                    # Always save as .jpg after processing
+                    filename = filename.rsplit('.', 1)[0] + '.jpg'
+                    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+
+                    # Save the file
+                    file.save(filepath)
+
+                    # Resize and optimize the image
+                    if resize_image(filepath, app.config['THUMBNAIL_SIZE']):
+                        project.thumbnail = filename
+                    else:
+                        # If resize fails, delete the file and continue without thumbnail
+                        os.remove(filepath)
+                        flash('Could not process image. Project created without thumbnail.', 'warning')
+
+            # Handle tags
+            tags_input = request.form.get('tags', '')
+            tags = tags_input.split(',')
+            for tag_name in tags:
+                tag_name = tag_name.strip()
+                if tag_name:
+                    if len(tag_name) > 50:
+                        flash(f'Tag "{tag_name}" is too long (max 50 characters). Skipped.', 'warning')
+                        continue
+                    tag = Tag.query.filter_by(name=tag_name).first()
+                    if not tag:
+                        tag = Tag(name=tag_name)
+                        db.session.add(tag)
+                    project.tags.append(tag)
+
+            db.session.add(project)
+            db.session.commit()
+            flash('Project created successfully!', 'success')
+            return redirect(url_for('project_detail', project_id=project.id))
+
+        except Exception as e:
+            db.session.rollback()
+            flash(f'An error occurred while creating the project: {str(e)}', 'error')
+            return redirect(url_for('new_project'))
 
     return render_template('new_project.html')
 
@@ -145,14 +214,31 @@ def project_detail(project_id):
 
 @app.route('/project/<int:project_id>/add_part', methods=['POST'])
 def add_part(project_id):
-    project = Project.query.get_or_404(project_id)
-    part_name = request.form['part_name']
-    # Get the highest position and add 1
-    max_position = db.session.query(db.func.max(Part.position)).filter_by(project_id=project_id).scalar() or -1
-    part = Part(name=part_name, project=project, position=max_position + 1)
-    db.session.add(part)
-    db.session.commit()
-    return redirect(url_for('project_detail', project_id=project_id))
+    try:
+        project = Project.query.get_or_404(project_id)
+        part_name = request.form.get('part_name', '').strip()
+
+        # Validate part name
+        if not part_name:
+            flash('Part name is required.', 'error')
+            return redirect(url_for('project_detail', project_id=project_id))
+
+        if len(part_name) > 100:
+            flash('Part name must be 100 characters or less.', 'error')
+            return redirect(url_for('project_detail', project_id=project_id))
+
+        # Get the highest position and add 1
+        max_position = db.session.query(db.func.max(Part.position)).filter_by(project_id=project_id).scalar() or -1
+        part = Part(name=part_name, project=project, position=max_position + 1)
+        db.session.add(part)
+        db.session.commit()
+        flash('Part added successfully!', 'success')
+        return redirect(url_for('project_detail', project_id=project_id))
+
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error adding part: {str(e)}', 'error')
+        return redirect(url_for('project_detail', project_id=project_id))
 
 @app.route('/part/<int:part_id>/delete', methods=['POST'])
 def delete_part(part_id):
@@ -204,13 +290,30 @@ def move_part(part_id):
 
 @app.route('/part/<int:part_id>/add_step', methods=['POST'])
 def add_step(part_id):
-    part = Part.query.get_or_404(part_id)
-    round_number = request.form['round_number']
-    instructions = request.form['instructions']
-    step = Step(round_number=round_number, instructions=instructions, part=part)
-    db.session.add(step)
-    db.session.commit()
-    return redirect(url_for('project_detail', project_id=part.project_id))
+    try:
+        part = Part.query.get_or_404(part_id)
+        round_number = request.form.get('round_number', '').strip()
+        instructions = request.form.get('instructions', '').strip()
+
+        # Validate inputs
+        if not instructions:
+            flash('Step instructions are required.', 'error')
+            return redirect(url_for('project_detail', project_id=part.project_id))
+
+        if len(round_number) > 20:
+            flash('Round number must be 20 characters or less.', 'error')
+            return redirect(url_for('project_detail', project_id=part.project_id))
+
+        step = Step(round_number=round_number, instructions=instructions, part=part)
+        db.session.add(step)
+        db.session.commit()
+        flash('Step added successfully!', 'success')
+        return redirect(url_for('project_detail', project_id=part.project_id))
+
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error adding step: {str(e)}', 'error')
+        return redirect(url_for('project_detail', project_id=part.project_id))
 
 @app.route('/step/<int:step_id>/edit', methods=['POST'])
 def edit_step(step_id):
@@ -306,15 +409,39 @@ def materials_list():
 @app.route('/materials/new', methods=['GET', 'POST'])
 def new_material():
     if request.method == 'POST':
-        material = MaterialType(
-            brand=request.form['brand'],
-            name=request.form['name'],
-            description=request.form.get('description', ''),
-            external_link=request.form.get('external_link', '')
-        )
-        db.session.add(material)
-        db.session.commit()
-        return redirect(url_for('materials_list'))
+        try:
+            brand = request.form.get('brand', '').strip()
+            name = request.form.get('name', '').strip()
+
+            # Validate required fields
+            if not brand or not name:
+                flash('Brand and name are required.', 'error')
+                return redirect(url_for('new_material'))
+
+            if len(brand) > 100:
+                flash('Brand must be 100 characters or less.', 'error')
+                return redirect(url_for('new_material'))
+
+            if len(name) > 100:
+                flash('Name must be 100 characters or less.', 'error')
+                return redirect(url_for('new_material'))
+
+            material = MaterialType(
+                brand=brand,
+                name=name,
+                description=request.form.get('description', '').strip(),
+                external_link=request.form.get('external_link', '').strip()
+            )
+            db.session.add(material)
+            db.session.commit()
+            flash('Material created successfully!', 'success')
+            return redirect(url_for('materials_list'))
+
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error creating material: {str(e)}', 'error')
+            return redirect(url_for('new_material'))
+
     return render_template('new_material.html')
 
 @app.route('/materials/<int:material_id>/edit', methods=['GET', 'POST'])
@@ -365,29 +492,52 @@ def search_materials():
 
 @app.route('/project/<int:project_id>/add_material', methods=['POST'])
 def add_material(project_id):
-    project = Project.query.get_or_404(project_id)
-    material_type_id = request.form.get('material_type_id')
-    quantity = request.form['quantity']
-    
-    # If material_type_id is not provided, create a new MaterialType
-    if not material_type_id:
-        material_type = MaterialType(
-            brand=request.form['brand'],
-            name=request.form['name'],
-            description=request.form.get('description', '')
+    try:
+        project = Project.query.get_or_404(project_id)
+        material_type_id = request.form.get('material_type_id')
+        quantity = request.form.get('quantity', '').strip()
+
+        # Validate quantity
+        if not quantity:
+            flash('Quantity is required.', 'error')
+            return redirect(url_for('project_detail', project_id=project_id))
+
+        if len(quantity) > 50:
+            flash('Quantity must be 50 characters or less.', 'error')
+            return redirect(url_for('project_detail', project_id=project_id))
+
+        # If material_type_id is not provided, create a new MaterialType
+        if not material_type_id:
+            brand = request.form.get('brand', '').strip()
+            name = request.form.get('name', '').strip()
+
+            if not brand or not name:
+                flash('Brand and name are required for new materials.', 'error')
+                return redirect(url_for('project_detail', project_id=project_id))
+
+            material_type = MaterialType(
+                brand=brand,
+                name=name,
+                description=request.form.get('description', '').strip()
+            )
+            db.session.add(material_type)
+            db.session.flush()  # Get the ID of the new material type
+            material_type_id = material_type.id
+
+        material = Material(
+            quantity=quantity,
+            project=project,
+            material_type_id=material_type_id
         )
-        db.session.add(material_type)
-        db.session.flush()  # Get the ID of the new material type
-        material_type_id = material_type.id
-    
-    material = Material(
-        quantity=quantity,
-        project=project,
-        material_type_id=material_type_id
-    )
-    db.session.add(material)
-    db.session.commit()
-    return redirect(url_for('project_detail', project_id=project_id))
+        db.session.add(material)
+        db.session.commit()
+        flash('Material added successfully!', 'success')
+        return redirect(url_for('project_detail', project_id=project_id))
+
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error adding material: {str(e)}', 'error')
+        return redirect(url_for('project_detail', project_id=project_id))
 
 @app.route('/project/<int:project_id>/delete', methods=['POST'])
 def delete_project(project_id):
@@ -406,6 +556,21 @@ def delete_project(project_id):
     db.session.commit()
     
     return redirect(url_for('index'))
+
+# Error handlers
+@app.errorhandler(404)
+def not_found_error(error):
+    return render_template('errors/404.html'), 404
+
+@app.errorhandler(500)
+def internal_error(error):
+    db.session.rollback()
+    return render_template('errors/500.html'), 500
+
+@app.errorhandler(413)
+def request_entity_too_large(error):
+    flash('File is too large. Maximum file size is 16MB.', 'error')
+    return redirect(request.referrer or url_for('index'))
 
 if __name__ == '__main__':
     with app.app_context():
