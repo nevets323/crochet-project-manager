@@ -259,89 +259,10 @@
                 </div>
             </div>
         </div>
-
-        <script>
-            let searchTimeout;
-            const materialSearch = document.getElementById('materialSearch');
-            const materialSuggestions = document.getElementById('materialSuggestions');
-            const materialTypeId = document.getElementById('materialTypeId');
-            const addMaterialForm = document.getElementById('addMaterialForm');
-
-            materialSearch.addEventListener('input', function() {
-                clearTimeout(searchTimeout);
-                const query = this.value.trim();
-                
-                if (query.length < 2) {
-                    materialSuggestions.style.display = 'none';
-                    return;
-                }
-
-                searchTimeout = setTimeout(() => {
-                    console.log('Searching for:', query);
-                    fetch(`/materials/search?q=${encodeURIComponent(query)}`)
-                        .then(response => {
-                            console.log('Search response:', response);
-                            return response.json();
-                        })
-                        .then(materials => {
-                            console.log('Found materials:', materials);
-                            materialSuggestions.innerHTML = '';
-                            materials.forEach(material => {
-                                const item = document.createElement('a');
-                                item.href = '#';
-                                item.className = 'list-group-item list-group-item-action';
-                                item.innerHTML = `<strong>${material.brand}</strong> - ${material.name}`;
-                                if (material.description) {
-                                    item.innerHTML += `<br><small class="text-muted">${material.description}</small>`;
-                                }
-                                
-                                item.addEventListener('click', (e) => {
-                                    e.preventDefault();
-                                    materialSearch.value = `${material.brand} - ${material.name}`;
-                                    materialTypeId.value = material.id;
-                                    materialSuggestions.style.display = 'none';
-                                });
-                                
-                                materialSuggestions.appendChild(item);
-                            });
-                            
-                            if (materials.length > 0) {
-                                materialSuggestions.style.display = 'block';
-                            } else {
-                                materialSuggestions.style.display = 'none';
-                            }
-                        });
-                }, 300);
-            });
-
-            document.addEventListener('click', function(e) {
-                if (!materialSearch.contains(e.target) && !materialSuggestions.contains(e.target)) {
-                    materialSuggestions.style.display = 'none';
-                }
-            });
-
-            function addNewMaterial() {
-                const brand = document.getElementById('newMaterialBrand').value;
-                const name = document.getElementById('newMaterialName').value;
-                const description = document.getElementById('newMaterialDescription').value;
-
-                materialSearch.value = `${brand} - ${name}`;
-                materialTypeId.value = '';  // Clear ID to indicate new material
-                
-                // Add hidden inputs for the new material
-                addMaterialForm.innerHTML += `
-                    <input type="hidden" name="brand" value="${brand}">
-                    <input type="hidden" name="name" value="${name}">
-                    <input type="hidden" name="description" value="${description}">
-                `;
-
-                // Close the modal
-                const modal = bootstrap.Modal.getInstance(document.getElementById('newMaterialModal'));
-                modal.hide();
-            }
-        </script>
     </div>
 </div>
+
+<script src="{{ url_for('static', filename='js/project_detail.js') }}"></script>
 
 <div class="row mt-4">
     <div class="col-12">
@@ -420,17 +341,16 @@
                     <div class="step-item mb-2">
                         <div class="d-flex justify-content-between align-items-start">
                             <div class="d-flex align-items-start">
-                                <form method="POST" action="{{ url_for('toggle_step', step_id=step.id) }}" class="me-2">
-                                    <div class="form-check">
-                                        <input type="checkbox" class="form-check-input" id="step{{ step.id }}" 
-                                               {% if step.completed %}checked{% endif %}
-                                               onchange="this.form.submit()">
-                                        <label class="form-check-label" for="step{{ step.id }}">
-                                            <strong>{{ step.round_number }}:</strong>
-                                        </label>
-                                    </div>
-                                </form>
-                                <div class="flex-grow-1 {% if step.completed %}text-decoration-line-through text-muted{% endif %}">
+                                <div class="form-check me-2">
+                                    <input type="checkbox" class="form-check-input step-checkbox"
+                                           id="step{{ step.id }}"
+                                           data-step-id="{{ step.id }}"
+                                           {% if step.completed %}checked{% endif %}>
+                                    <label class="form-check-label" for="step{{ step.id }}">
+                                        <strong>{{ step.round_number }}:</strong>
+                                    </label>
+                                </div>
+                                <div class="flex-grow-1 step-instructions {% if step.completed %}text-decoration-line-through text-muted{% endif %}">
                                     {{ step.instructions }}
                                 </div>
                             </div>

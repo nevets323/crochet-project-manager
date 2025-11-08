@@ -288,6 +288,44 @@ def move_part(part_id):
     
     return redirect(url_for('project_detail', project_id=part.project_id))
 
+@app.route('/project/<int:project_id>/reorder_parts', methods=['POST'])
+def reorder_parts(project_id):
+    """Reorder parts in a project (for drag-and-drop)"""
+    try:
+        project = Project.query.get_or_404(project_id)
+
+        # Get the new order from request
+        if request.is_json:
+            data = request.get_json()
+            part_ids = data.get('part_ids', [])
+        else:
+            part_ids = request.form.getlist('part_ids[]')
+
+        if not part_ids:
+            return jsonify({'success': False, 'error': 'No part IDs provided'}), 400
+
+        # Update positions
+        for new_position, part_id in enumerate(part_ids):
+            part = Part.query.get(int(part_id))
+            if part and part.project_id == project_id:
+                part.position = new_position
+
+        db.session.commit()
+
+        # Return JSON for AJAX requests
+        if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'success': True})
+
+        flash('Parts reordered successfully!', 'success')
+        return redirect(url_for('project_detail', project_id=project_id))
+
+    except Exception as e:
+        db.session.rollback()
+        if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'success': False, 'error': str(e)}), 500
+        flash(f'Error reordering parts: {str(e)}', 'error')
+        return redirect(url_for('project_detail', project_id=project_id))
+
 @app.route('/part/<int:part_id>/add_step', methods=['POST'])
 def add_step(part_id):
     try:
@@ -333,10 +371,30 @@ def delete_step(step_id):
 
 @app.route('/step/<int:step_id>/toggle', methods=['POST'])
 def toggle_step(step_id):
-    step = Step.query.get_or_404(step_id)
-    step.completed = not step.completed
-    db.session.commit()
-    return redirect(url_for('project_detail', project_id=step.part.project_id))
+    try:
+        step = Step.query.get_or_404(step_id)
+        step.completed = not step.completed
+        db.session.commit()
+
+        # Return JSON for AJAX requests
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({
+                'success': True,
+                'completed': step.completed,
+                'step_id': step_id
+            })
+
+        return redirect(url_for('project_detail', project_id=step.part.project_id))
+
+    except Exception as e:
+        db.session.rollback()
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({
+                'success': False,
+                'error': str(e)
+            }), 500
+        flash(f'Error toggling step: {str(e)}', 'error')
+        return redirect(url_for('project_detail', project_id=step.part.project_id))
 
 @app.route('/part/<int:part_id>/reset_steps', methods=['POST'])
 def reset_steps(part_id):
